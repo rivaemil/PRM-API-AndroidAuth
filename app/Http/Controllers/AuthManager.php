@@ -11,89 +11,52 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthManager extends Controller
 {
-    function register(Request $request)
+    public function register(Request $request)
     {
-        // Validate the request data
-        $validate = Validator::make($request->all(), 
-            [
-                'name' => 'required|max:255',
-                'email' => 'required|email|max:255|unique:users',
-                'password' => 'required|min:8|confirmed',
-            ]);
+        $validator = Validator::make($request->all(), [
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:6',
+        ]);
 
-        if ($validate->fails()) {
-            return response()->json(
-                ["status"=>"error",
-                "message"=>$validate->errors()->getMessages()
-                ], 200);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
         }
 
+        $user = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => Hash::make($request->password),
+        ]);
 
-        $validated = $validate->validated();
+        $token = $user->createToken('auth_token')->plainTextToken;
 
-        $user = new User();
-        $user->name = $validated['name'];
-        $user->email = $validated['email'];
-        $user->password = Hash::make($validated['password']); // Hash the password before saving
-        if ($user->save()){
-            return response()->json(
-                [
-                    "status"=>"success",
-                    "message"=>"User registered successfully!"
-                ], 200);
-        }
-        else {
-            return response()->json(
-                [
-                "status"=>"error",
-                "message"=>"User registration failed!"
-                ], 200);
-        }
+        return response()->json([
+            'access_token' => $token,
+            'token_type'   => 'Bearer',
+            'user'         => $user,
+        ]);
     }
 
-    function login(Request $request)
+    public function login(Request $request)
     {
-        // Validate the request data
-        $validate = Validator::make($request->all(), 
-            [
-                'email' => 'required|email|max:255',
-                'password' => 'required|min:8',
-            ]);
+        $request->validate([
+            'email'    => 'required|email',
+            'password' => 'required',
+        ]);
 
-        if ($validate->fails()) {
-            return response()->json(
-                [
-                    "status"=>"error",
-                    "message"=>$validate->errors()->getMessages()
-                ], 200);
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'Credenciales incorrectas'], 401);
         }
 
+        $token = $user->createToken('auth_token')->plainTextToken;
 
-        $validated = $validate->validated();
-
-        if(Auth::attempt(
-                [
-                    'email' => $validated['email'],
-                    'password' => $validated['password']
-                ]
-            )) {
-                $user = Auth::user(); 
-                $token = $user->createToken('mobile_token')->plainTextToken;
-                return response()->json(
-                    [
-                        "status"=>"success",
-                        "data"=> [
-                            'user'=>$user,
-                            'token'=>$token
-                        ],
-                        "message"=>"User logged in successfully!"
-                    ], 200);
-            } else {
-                return response()->json(
-                    [
-                        "status"=>"error",
-                        "message"=>"Invalid credentials!"
-                    ], 200);
-            }
+        return response()->json([
+            'access_token' => $token,
+            'token_type'   => 'Bearer',
+            'user'         => $user,
+        ]);
     }
 }
