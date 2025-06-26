@@ -16,16 +16,16 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $products = Product::factory(15)->create();
+        $products = Product::factory(10)->create();
 
         $products->each(function ($product) {
-            Image::factory()->create([
+            Image::factory(4)->create([
                 'imageable_id' => $product->id,
                 'imageable_type' => \App\Models\Product::class,
             ]);
         });
 
-        $users = User::factory(15)->create();
+        $users = User::factory()->create();
 
         $users->each(function ($user) {
             Image::factory()->create([

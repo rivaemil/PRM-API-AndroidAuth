@@ -17,5 +17,10 @@ Route::post('/login', [AuthManager::class, 'login']);
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
 Route::get('/articles', [ProductController::class, 'index']);
 Route::get('/images', [ImageController::class, 'index']);
+
+Route::resource('products', ProductController::class)
+    ->only(['index', 'store', 'show', 'update', 'destroy'])
+    ->names('api.article');
