@@ -8,6 +8,8 @@ use App\Models\Product;
 use App\Http\Resources\ProductCollection;
 use App\Http\Resources\ProductResource;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
+use App\Models\Image;
 
 class ProductController extends Controller
 {
@@ -34,7 +36,31 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'name'        => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'price'       => 'required|numeric',
+            'images'      => 'required|array|size:4',
+            'images.*'    => 'image|mimes:jpeg,png,jpg|max:2048',
+        ]);
+
+        $product = Product::create([
+            'name' => $request->name,
+            'description' => $request->description,
+            'price' => $request->price,
+            ]);
+
+        foreach ($request->file('images') as $imageFile) {
+            $imagePath = $imageFile->store('products', 'public');
+            $product->images()->create([
+                'url' => Storage::url($imagePath),
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Producto creado exitosamente',
+            'product' => new ProductResource($product->load('images')),
+        ], 201);
     }
 
     /**
