@@ -66,9 +66,15 @@ class ProductController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Product $product)
+    public function show($id)
     {
-        //
+        $product = Product::with('images')->find($id);
+
+        if (!$product) {
+            return response()->json(['message' => 'Producto no encontrado'], 404);
+        }
+
+        return response()->json($product);
     }
 
     /**
@@ -84,7 +90,39 @@ class ProductController extends Controller
      */
     public function update(Request $request, Product $product)
     {
-        //
+        $request->validate([
+            'name'        => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'price'       => 'required|numeric',
+            'images'      => 'nullable|array|size:4',
+            'images.*'    => 'image|mimes:jpeg,png,jpg|max:2048',
+        ]);
+
+        $product->update([
+            'name' => $request->name,
+            'description' => $request->description,
+            'price' => $request->price,
+        ]);
+
+        if ($request->hasFile('images')) {
+            foreach ($product->images as $image) {
+                $path = str_replace('/storage', '', $image->url); // porque Storage::url agrega /storage
+                Storage::disk('public')->delete($path);
+                $image->delete();
+            }
+
+            foreach ($request->file('images') as $imageFile) {
+                $imagePath = $imageFile->store('products', 'public');
+                $product->images()->create([
+                    'url' => Storage::url($imagePath),
+                ]);
+            }
+        }
+
+        return response()->json([
+            'message' => 'Producto actualizado exitosamente',
+            'product' => new ProductResource($product->load('images')),
+        ]);
     }
 
     /**
