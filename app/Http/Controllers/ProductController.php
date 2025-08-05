@@ -130,6 +130,18 @@ class ProductController extends Controller
      */
     public function destroy(Product $product)
     {
-        //
+        // Eliminar imágenes relacionadas
+        foreach ($product->images as $image) {
+            $path = str_replace('/storage', '', $image->url);
+            Storage::disk('public')->delete($path);
+            $image->delete();
+        }
+
+        // Eliminar el producto
+        $product->delete();
+
+        return response()->json([
+            'message' => 'Producto eliminado exitosamente'
+        ], 200);
     }
 }
