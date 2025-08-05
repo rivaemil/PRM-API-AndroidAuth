@@ -90,32 +90,56 @@ class ProductController extends Controller
      */
     public function update(Request $request, Product $product)
     {
-        $request->validate([
-            'name'        => 'required|string|max:255',
+        \Log::info("Iniciando actualización del producto ID: {$product->id}");
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'price'       => 'required|numeric',
-            'images'      => 'nullable|array|size:4',
-            'images.*'    => 'image|mimes:jpeg,png,jpg|max:2048',
+            'price' => 'required|numeric',
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'deletedImageUrls' => 'nullable|array',
+            'deletedImageUrls.*' => 'string',
         ]);
 
         $product->update([
-            'name' => $request->name,
-            'description' => $request->description,
-            'price' => $request->price,
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? '',
+            'price' => $validated['price'],
         ]);
 
+        // Eliminar imágenes seleccionadas por el usuario
+        if ($request->has('deletedImageUrls')) {
+            foreach ($request->deletedImageUrls as $url) {
+                $image = $product->images()->where('url', $url)->first();
+                if ($image) {
+                    $path = str_replace('/storage/', '', $image->url);
+                    Storage::disk('public')->delete($path);
+                    $image->delete();
+                    \Log::info("Imagen eliminada: {$url}");
+                }
+            }
+        }
+
+        // Verificar cuántas imágenes existen ahora
+        $currentImageCount = $product->images()->count();
+
+        // Agregar nuevas imágenes si no se supera el límite de 4
         if ($request->hasFile('images')) {
-            foreach ($product->images as $image) {
-                $path = str_replace('/storage', '', $image->url); // porque Storage::url agrega /storage
-                Storage::disk('public')->delete($path);
-                $image->delete();
+            $newImages = $request->file('images');
+            $totalAfterUpload = $currentImageCount + count($newImages);
+
+            if ($totalAfterUpload > 4) {
+                return response()->json([
+                    'message' => 'Solo se permiten hasta 4 imágenes por producto.',
+                ], 422);
             }
 
-            foreach ($request->file('images') as $imageFile) {
-                $imagePath = $imageFile->store('products', 'public');
+            foreach ($newImages as $imageFile) {
+                $path = $imageFile->store('products', 'public');
                 $product->images()->create([
-                    'url' => Storage::url($imagePath),
+                    'url' => Storage::url($path),
                 ]);
+                \Log::info("Imagen agregada: " . Storage::url($path));
             }
         }
 
@@ -124,6 +148,7 @@ class ProductController extends Controller
             'product' => new ProductResource($product->load('images')),
         ]);
     }
+
 
     /**
      * Remove the specified resource from storage.

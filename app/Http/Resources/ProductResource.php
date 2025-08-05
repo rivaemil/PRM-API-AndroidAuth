@@ -20,7 +20,12 @@ class ProductResource extends JsonResource
             'description' => $this->description,
             'price' => $this->price,
             'created_at' => $this->created_at,
-            'images' => $this->whenLoaded('images'),
+            'images' => $this->images->map(function ($image) {
+                return [
+                    'id' => $image->id,
+                    'url' => $image->url,
+                ];
+            }),
         ];
     }
 }
