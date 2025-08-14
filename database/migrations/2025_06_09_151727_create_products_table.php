@@ -17,6 +17,8 @@ return new class extends Migration
         $table->text('description');
         $table->decimal('price', 8, 2)->default(50);
         $table->timestamps();
+        $table->enum('status', ['active', 'inactive'])->default('active');
+        $table->foreignId('user_id')->constrained()->cascadeOnDelete()->cascadeOnUpdate();
     });
 }
 
